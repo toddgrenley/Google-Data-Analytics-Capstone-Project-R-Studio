@@ -1,0 +1,258 @@
+---
+title: "Google Data Analytics Capstone Project"
+subtitle: "Cyclistic Bike Share Analysis"
+author: "Todd"
+date: '2022-09-10'
+output: 
+  html_document:
+    toc: true
+    theme: united
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+
+## Scenario
+
+You are a junior data analyst working for Cyclistic, a bike share company based in Chicago. You are tasked with using the data provided to understand the differences between their two types of riders: casual and member. Converting more of these casual riders to members is key to future growth of the company, and as such it falls to you to use your understanding to come up with recommendations for the marketing team, who will devise a new marketing strategy based on your findings. But in order to achieve this, you must back up your findings with rock-solid analysis and compelling visualizations.
+
+The task begins with exploring the data and choosing the right tools for the job...
+
+
+## Preparing the Data
+
+There is a pile of not-so-organized data on an AWS server that we have to look at. After some examination, there seems to be a complete and consistently formatted year worth of data for 2021, so we go with that for our analysis, as it will create the least amount of problems in processing while giving us an entire year to work with. We also choose RStudio as our tool as it can handle the requisite large amount of data and allow us to do visualizaitons as well. But we will still export to Tableau at the end for more advanced visuals.
+
+Seeing as the data comes straight from the company operating the bike share, we can trust that it is valid. Now that we have a good foundation of data and tools, we can proceed.
+
+
+## Processing the Data
+
+#### Now in the R Studio environment
+We begin by loading the necessary packages.
+
+```{r}
+library(tidyverse)
+library(lubridate)
+library(janitor)
+library(ggplot2)
+```
+
+Then we load our files in and rename them to something simpler.
+
+```{r}
+trips_202101 <- read.csv("202101-divvy-tripdata.csv")
+trips_202102 <- read.csv("202102-divvy-tripdata.csv")
+trips_202103 <- read.csv("202103-divvy-tripdata.csv")
+trips_202104 <- read.csv("202104-divvy-tripdata.csv")
+trips_202105 <- read.csv("202105-divvy-tripdata.csv")
+trips_202106 <- read.csv("202106-divvy-tripdata.csv")
+trips_202107 <- read.csv("202107-divvy-tripdata.csv")
+trips_202108 <- read.csv("202108-divvy-tripdata.csv")
+trips_202109 <- read.csv("202109-divvy-tripdata.csv")
+trips_202110 <- read.csv("202110-divvy-tripdata.csv")
+trips_202111 <- read.csv("202111-divvy-tripdata.csv")
+trips_202112 <- read.csv("202112-divvy-tripdata.csv")
+```
+
+We use colnames to check if the columns match across all tables.
+
+```{r}
+colnames(trips_202101)
+colnames(trips_202102)
+colnames(trips_202103)
+colnames(trips_202104)
+colnames(trips_202105)
+colnames(trips_202106)
+colnames(trips_202107)
+colnames(trips_202108)
+colnames(trips_202109)
+colnames(trips_202110)
+colnames(trips_202111)
+colnames(trips_202112)
+```
+
+Visually inspect the tables.
+
+```{r}
+View(trips_202101)
+View(trips_202102)
+View(trips_202103)
+View(trips_202104)
+View(trips_202105)
+View(trips_202106)
+View(trips_202107)
+View(trips_202108)
+View(trips_202109)
+View(trips_202110)
+View(trips_202111)
+View(trips_202112)
+```
+
+The str function gives us more info on the data in the table, such as the data types, which will need to be congruent in order to merge the tables together.
+
+```{r}
+str(trips_202101)
+str(trips_202102)
+str(trips_202103)
+str(trips_202104)
+str(trips_202105)
+str(trips_202106)
+str(trips_202107)
+str(trips_202108)
+str(trips_202109)
+str(trips_202110)
+str(trips_202111)
+str(trips_202112)
+```
+
+This function, as a final check, gives you the number of columns that don't match. Everything seems to be in order here... so we can move on to the next stage.
+
+```{r}
+compare_df_cols(trips_202101,trips_202102,trips_202103,trips_202104,trips_202105,trips_202106,trips_202107,trips_202108,trips_202109,trips_202110,trips_202111,trips_202112)
+```
+
+### Creating Our Data Table
+
+Finally we can merge all of the tables into one large data frame.
+
+```{r}
+trips_2021 <- bind_rows(trips_202101,trips_202102,trips_202103,trips_202104,trips_202105,trips_202106,trips_202107,trips_202108,trips_202109,trips_202110,trips_202111,trips_202112)
+```
+
+Check out the newly created table! View lets you actually see the table while the following functions are just several different ways of pulling the summary statistics for the data frame.
+
+```{r}
+View(trips_2021)
+
+dim(trips_2021)
+
+head(trips_2021)
+
+str(trips_2021)
+
+summary(trips_2021)
+```
+
+Now we need to reformat the data types of the started_at and ended_at columns so we can perform calculations with them.
+
+```{r}
+trips_2021$started_at = as.POSIXct(trips_2021$started_at, format = "%Y-%m-%d %H:%M:%S")
+trips_2021$ended_at = as.POSIXct(trips_2021$ended_at, format = "%Y-%m-%d %H:%M:%S")
+```
+
+In order to study the trends of usage times, we'll need to break down the date column into individual attributes so they can be used separately. So now we'll have columns for date, year, month, day, and day of week.
+
+```{r}
+trips_2021$date <- as.Date(trips_2021$started_at)
+trips_2021$year <- format(as.Date(trips_2021$date), "%Y")
+trips_2021$month <- format(as.Date(trips_2021$date), "%m")
+trips_2021$day <- format(as.Date(trips_2021$date), "%d")
+trips_2021$day_of_week <- format(as.Date(trips_2021$date), "%A")
+```
+
+Now let's create a column for ride length. And with this one as well, it will need to be converted to numeric in order to use it for calculations. Finally, remove any ride times less than 0.
+
+```{r}
+trips_2021$ride_length <- difftime(trips_2021$ended_at,trips_2021$started_at)
+```
+
+```{r}
+trips_2021$ride_length <- as.numeric(as.character(trips_2021$ride_length))
+```
+
+```{r}
+trips_2021_V1 <- trips_2021[!(trips_2021$ride_length < 0),]
+```
+
+While we're cleaning up, go ahead and remove any blank rows from the table. Just like with ride lengths less than 0, there's not enough to really affect our analysis, but it's still good practice to make sure the data is as clean as possible.
+
+```{r}
+trips_2021_V1 <- trips_2021_V1 %>%
+  na.omit()
+```
+
+This one is optional as there are a few rows that aren't really needed for calculations, but they can be removed in order to make the data frame smaller. (For instance, I went ahead and removed all of these in order to make it under the 1 GB Tableau Public limit.)
+
+```{r}
+trips_2021_V1 <- trips_2021_V1 %>%
+  select(-c(start_lat, start_lng, end_lat, end_lng, ride_id))
+```
+
+Go ahead and check the table one final time! It looks clean and ready to go.
+
+```{r}
+View(trips_2021_V1)
+
+str(trips_2021_V1)
+```
+
+Now we can write the file for export to Tableau for visualization, or continue on working with RStudio. I chose to do some preliminary analysis and visualizing in RStudio first. Notice I wrote two different versions, the first one with no rows or values removed.
+
+```{r}
+write.csv(trips_2021, "trips_2021.csv")
+```
+
+```{r}
+write.csv(trips_2021_V1, "trips_2021_V1.csv")
+```
+
+
+## Analysis
+
+Let's begin by computing some simple statistics on the table.
+
+```{r}
+mean(trips_2021$ride_length)
+median(trips_2021$ride_length)
+max(trips_2021$ride_length)
+min(trips_2021$ride_length)
+```
+
+Because the focus is on differentiating members vs. casual users, the aggregate function will help us group these separately in calculations, such as the first one here, which will produce average ride length for members as well as casual users.
+
+```{r}
+aggregate(trips_2021$ride_length, by = list(trips_2021$member_casual), FUN = mean)
+aggregate(trips_2021$ride_length, by = list(trips_2021$member_casual), FUN = median)
+aggregate(trips_2021$ride_length, by = list(trips_2021$member_casual), FUN = max)
+aggregate(trips_2021$ride_length, by = list(trips_2021$member_casual), FUN = min)
+```
+
+To take it a step further, we also want to break this down to weekly behavior for instance, so we separate the means up by day of week as well. Then sort them so they display in the correct order. Run the first function again to see the corrected order.
+
+```{r}
+aggregate(trips_2021$ride_length, by = list(trips_2021$member_casual, trips_2021$day_of_week), FUN = mean)
+```
+
+```{r}
+trips_2021$day_of_week <- ordered(trips_2021$day_of_week, levels = c("Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"))
+```
+
+
+## Visualizations
+
+Now that we've done some in depth calculations, we can begin to visualize some patterns. Let's use what we've done to make a bar graph displaying member vs. casual weekly behavior via average ride numbers.
+
+```{r}
+trips_2021 %>%
+  mutate(weekday = wday(started_at, label = TRUE)) %>%
+  group_by(member_casual, weekday) %>%
+  summarise(number_of_rides = n(), average_duration = mean(ride_length)) %>%
+  arrange(member_casual, weekday) %>%
+  ggplot(aes(x = weekday, y = number_of_rides, fill = member_casual)) + 
+  geom_col(position = "dodge")
+```
+
+This one is mostly the same, but plots average ride length on the y-axis instead of count.
+
+```{r}
+trips_2021 %>%
+  mutate(weekday = wday(started_at, label = TRUE)) %>%
+  group_by(member_casual, weekday) %>%
+  summarise(number_of_rides = n(), average_duration = mean(ride_length)) %>%
+  arrange(member_casual, weekday) %>%
+  ggplot(aes(x = weekday, y = average_duration, fill = member_casual)) + 
+  geom_col(position = "dodge")
+```
