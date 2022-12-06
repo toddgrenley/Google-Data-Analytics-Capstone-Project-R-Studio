@@ -1,4 +1,4 @@
-# Google-Data-Analytics-Capstone-Project-R-Studio
+# Google-Data-Analytics-Capstone-Project-RStudio
 
 This is a project I completed for my Google Data Analytics Professional Certificate. It is the capstone project that was assigned at the end, designed to pull together
 everything that was learned over the eight courses. More details are in the markdown file, but in short it is a case study designed to put you in the shoes of a junior data
